@@ -548,6 +548,21 @@ class ReportCardGenerator:
 
         table.wrapOn(c, width, height)
         table.drawOn(c, x, y + height - 6.8 * cm)
+        
+            # Add note about overall percentage calculation
+        note_style = ParagraphStyle('Note', fontName='Roboto-Italic', fontSize=8, leading=10, alignment=TA_LEFT)
+        note_text = """
+        <font name='Roboto-BlackItalic'>Note on Overall Percentage Calculation:</font>
+        The overall percentage is weighted as follows:
+        • 60% Curricular (Maths, GAT, English, Subjective)
+        • 20% Co-curricular activities
+        • 20% Extra-curricular activities
+        """
+        note = Paragraph(note_text, note_style)
+        note_width = width - 7 * cm
+        note_height = 2 * cm
+        note.wrapOn(c, note_width, note_height)
+        note.drawOn(c, x, y + height - 8.1 * cm)
 
         def center_text_over_line(text, line_start, line_end, y_position):
             text_width = c.stringWidth(text, "Roboto-Bold", 10)

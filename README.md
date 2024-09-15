@@ -79,4 +79,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For any queries or support, please contact the ANEES DEFENCE CAREER INSTITUTE IT department.
+For any queries or support, please contact me.

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 595.27 841.89">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&amp;family=Bebas+Neue&amp;display=swap');
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="595.27" height="841.89" fill="#F7F7F7"/>
+  
+  <!-- Header -->
+  <rect x="0" y="0" width="595.27" height="150" fill="#4ECDC4"/>
+  
+  <!-- Logos -->
+  <image x="55" y="15" width="120" height="140" href="1.png" preserveAspectRatio="xMidYMid meet"/>
+  <image x="180" y="10" width="140" height="140" href="2.png" preserveAspectRatio="xMidYMid meet"/>
+  <image x="300" y="10" width="140" height="140" href="3.png" preserveAspectRatio="xMidYMid meet"/>
+  <image x="420" y="10" width="140" height="140" href="4.png" preserveAspectRatio="xMidYMid meet"/>
+  
+  <!-- Vision -->
+  <rect x="47.5" y="220" width="500" height="120" rx="20" fill="#4ECDC4" opacity="0.9"/>
+  <text x="297.635" y="270" font-family="Bebas Neue, cursive" font-size="36" text-anchor="middle" fill="#ffffff">OUR VISION</text>
+  <text x="297.635" y="310" font-family="Poppins, sans-serif" font-size="20" font-weight="400" text-anchor="middle" fill="#ffffff">ISOLATION TO MAINSTREAM</text>
+  
+  <!-- Mission -->
+  <rect x="97.5" y="360" width="400" height="120" rx="20" fill="#FF6B6B" opacity="0.9"/>
+  <text x="297.635" y="410" font-family="Bebas Neue, cursive" font-size="36" text-anchor="middle" fill="#ffffff">OUR MISSION</text>
+  <text x="297.635" y="450" font-family="Poppins, sans-serif" font-size="20" font-weight="400" text-anchor="middle" fill="#ffffff">IDEATION TO EXECUTION</text>
+  
+  <!-- Goals -->
+  <rect x="47.5" y="500" width="500" height="120" rx="20" fill="#45B7D1" opacity="0.9"/>
+  <text x="297.635" y="550" font-family="Bebas Neue, cursive" font-size="36" text-anchor="middle" fill="#ffffff">OUR GOAL</text>
+  <text x="297.635" y="590" font-family="Poppins, sans-serif" font-size="20" font-weight="400" text-anchor="middle" fill="#ffffff">NURSERY TO NAUKRI</text>
+  
+  <!-- Social Media Section -->
+  <rect x="0" y="691.89" width="595.27" height="150" fill="#4ECDC4"/>
+  
+  <!-- QR Code -->
+  <image x="87.5" y="651.89" width="150" height="150" href="QR.png" preserveAspectRatio="xMidYMid meet"/>
+  
+  <!-- Tagline -->
+  <text x="265" y="730" font-family="Bebas Neue, cursive" font-size="32" fill="#ffffff">SCAN TO CONNECT</text>
+  <text x="265" y="755" font-family="Poppins, sans-serif" font-size="20" font-weight="400" fill="#ffffff">with us on all platforms!</text>
+  
+  <!-- Footer -->
+  <text x="297.635" y="821.89" font-family="Poppins, sans-serif" font-size="14" font-weight="400" text-anchor="middle" fill="#ffffff">© 2024 ADCI Institute. All rights reserved.</text>
+</svg>

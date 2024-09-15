@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 595.27 841.89">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&amp;family=Bebas+Neue&amp;display=swap');
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="595.27" height="841.89" fill="#F7F7F7"/>
+  
+  <!-- Header -->
+  <rect x="0" y="0" width="595.27" height="180" fill="#4ECDC4"/>
+  
+  <!-- Logos (Shifted left) -->
+  <image x="-15" y="10" width="150" height="180" href="1.png" preserveAspectRatio="xMidYMid meet"/>
+  <image x="105" y="10" width="130" height="160" href="2.png" preserveAspectRatio="xMidYMid meet"/>
+  <image x="205" y="10" width="130" height="160" href="3.png" preserveAspectRatio="xMidYMid meet"/>
+  <image x="335" y="15" width="120" height="150" href="4.png" preserveAspectRatio="xMidYMid meet"/>
+  <image x="460" y="5" width="130" height="160" href="5.png" preserveAspectRatio="xMidYMid meet"/>
+  
+  <!-- Vision -->
+  <rect x="47.5" y="240" width="500" height="120" rx="20" fill="#4ECDC4" opacity="0.9"/>
+  <text x="297.635" y="290" font-family="Bebas Neue, cursive" font-size="36" text-anchor="middle" fill="#ffffff">OUR VISION</text>
+  <text x="297.635" y="330" font-family="Poppins, sans-serif" font-size="20" font-weight="400" text-anchor="middle" fill="#ffffff">ISOLATION TO MAINSTREAM</text>
+  
+  <!-- Mission -->
+  <rect x="97.5" y="380" width="400" height="120" rx="20" fill="#FF6B6B" opacity="0.9"/>
+  <text x="297.635" y="430" font-family="Bebas Neue, cursive" font-size="36" text-anchor="middle" fill="#ffffff">OUR MISSION</text>
+  <text x="297.635" y="470" font-family="Poppins, sans-serif" font-size="20" font-weight="400" text-anchor="middle" fill="#ffffff">IDEATION TO EXECUTION</text>
+  
+  <!-- Goals -->
+  <rect x="47.5" y="520" width="500" height="120" rx="20" fill="#45B7D1" opacity="0.9"/>
+  <text x="297.635" y="570" font-family="Bebas Neue, cursive" font-size="36" text-anchor="middle" fill="#ffffff">OUR GOAL</text>
+  <text x="297.635" y="610" font-family="Poppins, sans-serif" font-size="20" font-weight="400" text-anchor="middle" fill="#ffffff">NURSERY TO NAUKRI</text>
+  
+  <!-- Social Media Section -->
+  <rect x="0" y="701.89" width="595.27" height="140" fill="#4ECDC4"/>
+  
+  <!-- QR Code -->
+  <image x="87.5" y="661.89" width="140" height="140" href="QR.png" preserveAspectRatio="xMidYMid meet"/>
+  
+  <!-- Tagline -->
+  <text x="240" y="750" font-family="Bebas Neue, cursive" font-size="32" fill="#ffffff">SCAN TO CONNECT</text>
+  <text x="240" y="775" font-family="Poppins, sans-serif" font-size="20" font-weight="400" fill="#ffffff">with us on Social Media!</text>
+
+  <!-- Footer -->
+  <text x="297.635" y="821.89" font-family="Poppins, sans-serif" font-size="14" font-weight="400" text-anchor="middle" fill="#ffffff">© 2024 ADCI Institute. All rights reserved.</text>
+</svg>

@@ -82,7 +82,6 @@ class ReportCardGenerator:
         for i in range(1, 100):  # Assume a large upper limit
             exam_col = f'Exam{i}'
             gat_col = f'GAT{i}'
-            english_col = f'English{i}'
             maths_col = f'Maths{i}'
             
             if exam_col not in df.columns:
@@ -92,13 +91,11 @@ class ReportCardGenerator:
             
             if gat_col in df.columns:
                 df[f'GAT Marks{i}'] = df[gat_col]
-            if english_col in df.columns:
-                df[f'English Marks{i}'] = df[english_col]
             if maths_col in df.columns:
                 df[f'Maths Marks{i}'] = df[maths_col]
             
             # Drop the original columns to avoid duplication
-            columns_to_drop = [col for col in [exam_col, gat_col, english_col, maths_col] if col in df.columns]
+            columns_to_drop = [col for col in [exam_col, gat_col, maths_col] if col in df.columns]
             df = df.drop(columns=columns_to_drop)
 
         return df
@@ -194,52 +191,75 @@ class ReportCardGenerator:
             c.drawString(x + width / 5, y + height - 2.25 * cm, "District: N/A")
 
     def select_top_4_dates(self, exam_data):
-        date_averages = {}
+        date_scores = []
+        absent_dates = []
         for date, results in exam_data.items():
-            scores = []
-            for score in results.values():
+            total_score = 0
+            count = 0
+            is_absent = True
+            for subject, score in results.items():
                 if score and score != "Absent":
-                    if '/' in score:  # Handle "score/total" format
-                        score_value, total = map(float, score.split('/'))
-                        scores.append(score_value / total * 100)  # Convert to percentage
-                    else:
-                        scores.append(float(score))
-            if scores:
-                date_averages[date] = sum(scores) / len(scores)
-
-        top_4_dates = sorted(date_averages, key=date_averages.get, reverse=True)[:4]
+                    is_absent = False
+                    try:
+                        if isinstance(score, str) and '/' in score:
+                            numerator, denominator = score.split('/')
+                            total_score += (float(numerator) / float(denominator)) * 100
+                        else:
+                            total_score += float(score)
+                        count += 1
+                    except ValueError:
+                        print(f"Error converting score: {score}")
+            if count > 0:
+                average_score = total_score / count
+                date_scores.append((date, average_score))
+            elif is_absent:
+                absent_dates.append(date)
+    
+        # Sort dates by average score in descending order
+        sorted_dates = sorted(date_scores, key=lambda x: x[1], reverse=True)
+    
+        # Select top 4 dates
+        top_4_dates = [date for date, _ in sorted_dates[:4]]
+    
+        # If we have fewer than 4 dates, add absent dates
+        while len(top_4_dates) < 4 and absent_dates:
+            top_4_dates.append(absent_dates.pop(0))
+    
+        # If we still have fewer than 4 dates, add placeholder dates
+        while len(top_4_dates) < 4:
+            placeholder_date = f"Exam {len(top_4_dates) + 1}"
+            top_4_dates.append(placeholder_date)
+            exam_data[placeholder_date] = {"MATHS": "Absent", "GAT": "Absent"}
+    
         return {date: exam_data[date] for date in top_4_dates}
-
+    
     def draw_exam_results(self, c, student, x, y, width, height):
         c.setFont("Roboto-Black", 14)
         c.drawString(x, y + height - 1 * cm, "OBJECTIVE EXAM RESULTS (Top 4): ")
     
-        data = [["Date", "MATHS Marks (Out of 300)", "GAT Marks (Out of 400)", "English Marks (Out of 200)"]]
+        data = [["Date", "MATHS Marks (Out of 188)", "GAT Marks (Out of 300)"]]
     
         exam_data = {}
         for i in range(1, 100):
             date_key = f'Date{i}'
             maths_key = f'Maths Marks{i}'
             gat_key = f'GAT Marks{i}'
-            english_key = f'English Marks{i}'
     
             if date_key not in student:
                 break
     
             date = student[date_key]
-            maths_marks = self.format_marks(student.get(maths_key, ""))
-            gat_marks = self.format_marks(student.get(gat_key, ""))
-            english_marks = self.format_marks(student.get(english_key, ""))
+            if pd.notna(date):
+                maths_marks = self.format_marks(student.get(maths_key, "Absent"))
+                gat_marks = self.format_marks(student.get(gat_key, "Absent"))
     
-            if date not in exam_data:
-                exam_data[date] = {"MATHS": "", "GAT": "", "English": ""}
+                if date not in exam_data:
+                    exam_data[date] = {"MATHS": "Absent", "GAT": "Absent"}
     
-            if maths_marks:
-                exam_data[date]["MATHS"] = maths_marks
-            if gat_marks:
-                exam_data[date]["GAT"] = gat_marks
-            if english_marks:
-                exam_data[date]["English"] = english_marks
+                if maths_marks != "Absent":
+                    exam_data[date]["MATHS"] = maths_marks
+                if gat_marks != "Absent":
+                    exam_data[date]["GAT"] = gat_marks
     
         # Select top 4 dates
         top_4_exam_data = self.select_top_4_dates(exam_data)
@@ -247,9 +267,8 @@ class ReportCardGenerator:
         for date, results in top_4_exam_data.items():
             data.append([
                 date,
-                results["MATHS"],
-                results["GAT"],
-                results["English"]
+                results.get("MATHS", "Absent"),
+                results.get("GAT", "Absent")
             ])
     
         # Adjust these values to shift the table left and modify its width
@@ -257,10 +276,9 @@ class ReportCardGenerator:
         table_width = width + 2 * cm  # Increased to use even more of the available width
     
         col_widths = [
-            table_width * 0.16,  # Date
-            table_width * 0.28,  # MATHS Marks
-            table_width * 0.28,  # GAT Marks
-            table_width * 0.28   # English Marks
+            table_width * 0.2,  # Date
+            table_width * 0.4,  # MATHS Marks
+            table_width * 0.4,  # GAT Marks
         ]
     
         table = Table(data, colWidths=col_widths)
@@ -293,22 +311,34 @@ class ReportCardGenerator:
             if subject not in student:
                 break
             if pd.notna(student[subject]):
-                date_value = student[date] if pd.notna(student[date]) else ""
+                date_value = student[date] if pd.notna(student[date]) else f"Exam {i}"
                 marks_value = student[marks] if pd.notna(student[marks]) else "Absent"
                 if marks_value != "Absent":
-                    mark, total = map(int, str(marks_value).split('/'))
-                    marks_value = f"{mark:.1f}/{total:d}"
+                    try:
+                        mark, total = map(float, str(marks_value).split('/'))
+                        score = (mark / total) * 100
+                    except ValueError:
+                        score = 0
+                else:
+                    score = 0
                 
                 if date_value not in exam_data:
-                    exam_data[date_value] = {}
-                exam_data[date_value][student[subject]] = marks_value
+                    exam_data[date_value] = []
+                exam_data[date_value].append((student[subject], marks_value, score))
             i += 1
 
-        # Select top 4 dates
-        top_4_exam_data = self.select_top_4_dates(exam_data)
+        # Sort exams by score and select top 4
+        sorted_exams = sorted(exam_data.items(), key=lambda x: max(item[2] for item in x[1]) if x[1] else 0, reverse=True)
+        top_4_exams = sorted_exams[:4]
 
-        for date, subjects in top_4_exam_data.items():
-            for subject, marks in subjects.items():
+        # Fill remaining slots if needed
+        while len(top_4_exams) < 4:
+            placeholder_date = f"Exam {len(top_4_exams) + 1}"
+            top_4_exams.append((placeholder_date, [("N/A", "Absent", 0)]))
+
+        # Populate the data for the table
+        for date, subjects in top_4_exams:
+            for subject, marks, _ in subjects:
                 data.append([date, subject, marks])
 
         col_widths = [width * 0.15, width * 0.20, width * 0.15]
@@ -415,18 +445,15 @@ class ReportCardGenerator:
 
         maths_marks = []
         gat_marks = []
-        english_marks = []
         maths_count = 0
         gat_count = 0
-        english_count = 0
 
         i = 1
         while True:
             maths_key = f"Maths Marks{i}"
             gat_key = f"GAT Marks{i}"
-            english_key = f"English Marks{i}"
 
-            if maths_key not in student and gat_key not in student and english_key not in student:
+            if maths_key not in student and gat_key not in student:
                 break
 
             if pd.notna(student.get(maths_key)) and student[maths_key] != "Absent":
@@ -437,19 +464,13 @@ class ReportCardGenerator:
                 gat_marks.append(float(student[gat_key]))
                 gat_count += 1
 
-            if pd.notna(student.get(english_key)) and student[english_key] != "Absent":
-                english_marks.append(float(student[english_key]))
-                english_count += 1
-
             i += 1
 
-        maths_total = maths_count * 300
-        gat_total = gat_count * 400
-        english_total = english_count * 200
+        maths_total = maths_count * 188
+        gat_total = gat_count * 300
 
         maths_sum = sum(maths_marks)
         gat_sum = sum(gat_marks)
-        english_sum = sum(english_marks)
 
         def get_color_for_subject(score, total_score, subject, exam_count):
             Traffic_red = colors.Color(0.85, 0.1, 0.1)   # Lighter red
@@ -460,14 +481,11 @@ class ReportCardGenerator:
                 return Traffic_red
 
             if subject == 'Maths':
-                green_threshold = total_score * (101 / 300)
-                orange_threshold = total_score * (91 / 300)
+                green_threshold = total_score * (63 / 188)
+                orange_threshold = total_score * (57 / 188)
             elif subject == 'GAT':
-                green_threshold = total_score * (301 / 400)
-                orange_threshold = total_score * (281 / 400)
-            elif subject == 'English':
-                green_threshold = total_score * (101 / 200)
-                orange_threshold = total_score * (91 / 200)
+                green_threshold = total_score * (226 / 300)
+                orange_threshold = total_score * (211 / 300)
             elif subject == 'Subjective':
                 green_threshold = 76  # 76% and above
                 orange_threshold = 51  # Between 50% and 75%
@@ -492,18 +510,21 @@ class ReportCardGenerator:
                 break
             marks = student[marks_key]
             if pd.notna(marks) and marks != "Absent":
-                mark, total = map(int, str(marks).split('/'))
-                subjective_marks.append(mark)
-                subjective_total.append(total)
-                subjective_count += 1
+                try:
+                    mark, total = map(float, str(marks).split('/'))
+                    subjective_marks.append(mark)
+                    subjective_total.append(total)
+                    subjective_count += 1
+                except ValueError:
+                    print(f"Error converting subjective marks: {marks}")
             i += 1
         subjective_sum = sum(subjective_marks)
         subjective_total_sum = sum(subjective_total)
         subjective_percent = (subjective_sum / subjective_total_sum) * 100 if subjective_total_sum else 0
 
         # Calculate overall percentage
-        curricular_sum = maths_sum + gat_sum + english_sum + subjective_sum
-        curricular_total = maths_total + gat_total + english_total + subjective_total_sum
+        curricular_sum = maths_sum + gat_sum + subjective_sum
+        curricular_total = maths_total + gat_total + subjective_total_sum
         curricular_percent = (curricular_sum / curricular_total) * 100 if curricular_total else 0
         curricular_weighted = curricular_percent * 0.6
 
@@ -519,7 +540,6 @@ class ReportCardGenerator:
         data = [
             [Paragraph(f"<font name='Roboto-Black'>MATHS Total:</font> {maths_sum:.2f} out of <font name='Roboto-bold'>{maths_total}</font> (<font name='Roboto-bold'>{maths_count}</font> exams)", normal_style)],
             [Paragraph(f"<font name='Roboto-Black'>GAT Total:</font> {gat_sum:.2f} out of <font name='Roboto-bold'>{gat_total}</font> (<font name='Roboto-bold'>{gat_count}</font> exams)", normal_style)],
-            [Paragraph(f"<font name='Roboto-Black'>English Total:</font> {english_sum:.2f} out of <font name='Roboto-bold'>{english_total}</font> (<font name='Roboto-bold'>{english_count}</font> exams)", normal_style)],
             [Paragraph(f"<font name='Roboto-Black'>Subjective Total:</font> {subjective_sum:.2f} out of <font name='Roboto-bold'>{subjective_total_sum}</font> (<font name='Roboto-bold'>{subjective_count}</font> exams)", normal_style)],
             [Paragraph(f"<font name='Roboto-Black'>Overall Percentage:</font> {overall_percent:.2f}% (out of 100%)", normal_style)]
         ]
@@ -539,22 +559,20 @@ class ReportCardGenerator:
             ('ROUNDEDCORNERS', [10, 10, 10, 10]),
             ('BACKGROUND', (0, 0), (0, 0), get_color_for_subject(maths_sum, maths_total, 'Maths', maths_count)),
             ('BACKGROUND', (0, 1), (0, 1), get_color_for_subject(gat_sum, gat_total, 'GAT', gat_count)),
-            ('BACKGROUND', (0, 2), (0, 2), get_color_for_subject(english_sum, english_total, 'English', english_count)),
-            ('BACKGROUND', (0, 3), (0, 3), get_color_for_subject(subjective_percent, 100, 'Subjective', subjective_count)),
-            ('LINEBEFORE', (0, 4), (0, 4), 2, colors.black),  # Thicker left border for Overall Percentage
-            ('LINEAFTER', (0, 4), (0, 4), 2, colors.black),   # Thicker right border for Overall Percentage
-            ('LINEBELOW', (0, 4), (0, 4), 2, colors.black),  # Thicker bottom border for Overall Percentage
-        ]))
+            ('BACKGROUND', (0, 2), (0, 2), get_color_for_subject(subjective_percent, 100, 'Subjective', subjective_count)),
+            ('LINEBEFORE', (0, 3), (0, 3), 2, colors.black),  # Thicker left border for Overall Percentage
+            ('LINEAFTER', (0, 3), (0, 3), 2, colors.black),   # Thicker right border for Overall Percentage
+            ('LINEBELOW', (0, 3), (0, 3), 2, colors.black), ]))
 
         table.wrapOn(c, width, height)
         table.drawOn(c, x, y + height - 6.8 * cm)
         
-            # Add note about overall percentage calculation
+        # Add note about overall percentage calculation
         note_style = ParagraphStyle('Note', fontName='Roboto-Italic', fontSize=8, leading=10, alignment=TA_LEFT)
         note_text = """
         <font name='Roboto-BlackItalic'>Note on Overall Percentage Calculation:</font>
         The overall percentage is weighted as follows:
-        • 60% Curricular (Maths, GAT, English, Subjective)
+        • 60% Curricular (Maths, GAT, Subjective)
         • 20% Co-curricular activities
         • 20% Extra-curricular activities
         """
@@ -681,12 +699,16 @@ class ReportCardGenerator:
             return Traffic_green
 
     def format_marks(self, marks):
-        if pd.isna(marks) or marks == "Absent":
-            return "Absent"
-        try:
-            return f"{float(marks):.2f}"
-        except ValueError:
-            return marks
+       if pd.isna(marks) or marks == "" or marks == "Absent":
+           return "Absent"
+       try:
+           if isinstance(marks, str) and '/' in marks:
+               numerator, denominator = marks.split('/')
+               score = float(numerator) / float(denominator)
+               return f"{score:.2f}"
+           return f"{float(marks):.2f}"
+       except ValueError:
+           return str(marks)  # Return as is if it can't be converted to float
 
     def calculate_activity_percentage(self, student, activity_type):
         attendance = self.get_attendance(student, [f'{activity_type} Attendance', f'{activity_type} Attendance ', activity_type])
@@ -707,7 +729,7 @@ class ReportCardGenerator:
                 except ValueError:
                     return 0
         return 0  # Return 0 for any other unexpected data type
-
+    
 def main():
     generator = ReportCardGenerator()
 

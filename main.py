@@ -194,20 +194,46 @@ class ReportCardGenerator:
             c.drawString(x + width / 5, y + height - 2.25 * cm, "District: N/A")
 
     def select_top_4_dates(self, exam_data):
-        date_averages = {}
+        date_scores = []
+        absent_dates = []
         for date, results in exam_data.items():
-            scores = []
-            for score in results.values():
+            total_score = 0
+            count = 0
+            is_absent = True
+            for subject, score in results.items():
                 if score and score != "Absent":
-                    if '/' in score:  # Handle "score/total" format
-                        score_value, total = map(float, score.split('/'))
-                        scores.append(score_value / total * 100)  # Convert to percentage
-                    else:
-                        scores.append(float(score))
-            if scores:
-                date_averages[date] = sum(scores) / len(scores)
+                    is_absent = False
+                    try:
+                        if isinstance(score, str) and '/' in score:
+                            numerator, denominator = score.split('/')
+                            total_score += (float(numerator) / float(denominator)) * 100
+                        else:
+                            total_score += float(score)
+                        count += 1
+                    except ValueError:
+                        print(f"Error converting score: {score}")
+            if count > 0:
+                average_score = total_score / count
+                date_scores.append((date, average_score))
+            elif is_absent:
+                absent_dates.append(date)
 
-        top_4_dates = sorted(date_averages, key=date_averages.get, reverse=True)[:4]
+        # Sort dates by average score in descending order
+        sorted_dates = sorted(date_scores, key=lambda x: x[1], reverse=True)
+
+        # Select top 4 dates
+        top_4_dates = [date for date, _ in sorted_dates[:4]]
+
+        # If we have fewer than 4 dates, add absent dates
+        while len(top_4_dates) < 4 and absent_dates:
+            top_4_dates.append(absent_dates.pop(0))
+
+        # If we still have fewer than 4 dates, add placeholder dates
+        while len(top_4_dates) < 4:
+            placeholder_date = f"Exam {len(top_4_dates) + 1}"
+            top_4_dates.append(placeholder_date)
+            exam_data[placeholder_date] = {subject: "Absent" for subject in exam_data[top_4_dates[0]].keys()}
+
         return {date: exam_data[date] for date in top_4_dates}
 
     def draw_exam_results(self, c, student, x, y, width, height):
@@ -232,7 +258,7 @@ class ReportCardGenerator:
             english_marks = self.format_marks(student.get(english_key, ""))
     
             if date not in exam_data:
-                exam_data[date] = {"MATHS": "", "GAT": "", "English": ""}
+                exam_data[date] = {"MATHS": "Absent", "GAT": "Absent", "English": "Absent"}
     
             if maths_marks:
                 exam_data[date]["MATHS"] = maths_marks
@@ -293,22 +319,34 @@ class ReportCardGenerator:
             if subject not in student:
                 break
             if pd.notna(student[subject]):
-                date_value = student[date] if pd.notna(student[date]) else ""
+                date_value = student[date] if pd.notna(student[date]) else f"Exam {i}"
                 marks_value = student[marks] if pd.notna(student[marks]) else "Absent"
                 if marks_value != "Absent":
-                    mark, total = map(int, str(marks_value).split('/'))
-                    marks_value = f"{mark:.1f}/{total:d}"
+                    try:
+                        mark, total = map(int, str(marks_value).split('/'))
+                        score = (mark / total) * 100
+                    except ValueError:
+                        score = 0
+                else:
+                    score = 0
                 
                 if date_value not in exam_data:
-                    exam_data[date_value] = {}
-                exam_data[date_value][student[subject]] = marks_value
+                    exam_data[date_value] = []
+                exam_data[date_value].append((student[subject], marks_value, score))
             i += 1
 
-        # Select top 4 dates
-        top_4_exam_data = self.select_top_4_dates(exam_data)
+        # Sort exams by score and select top 4
+        sorted_exams = sorted(exam_data.items(), key=lambda x: max(item[2] for item in x[1]) if x[1] else 0, reverse=True)
+        top_4_exams = sorted_exams[:4]
 
-        for date, subjects in top_4_exam_data.items():
-            for subject, marks in subjects.items():
+        # Fill remaining slots if needed
+        while len(top_4_exams) < 4:
+            placeholder_date = f"Exam {len(top_4_exams) + 1}"
+            top_4_exams.append((placeholder_date, [("N/A", "Absent", 0)]))
+
+        # Populate the data for the table
+        for date, subjects in top_4_exams:
+            for subject, marks, _ in subjects:
                 data.append([date, subject, marks])
 
         col_widths = [width * 0.15, width * 0.20, width * 0.15]
@@ -549,7 +587,7 @@ class ReportCardGenerator:
         table.wrapOn(c, width, height)
         table.drawOn(c, x, y + height - 6.8 * cm)
         
-            # Add note about overall percentage calculation
+        # Add note about overall percentage calculation
         note_style = ParagraphStyle('Note', fontName='Roboto-Italic', fontSize=8, leading=10, alignment=TA_LEFT)
         note_text = """
         <font name='Roboto-BlackItalic'>Note on Overall Percentage Calculation:</font>
@@ -614,7 +652,8 @@ class ReportCardGenerator:
     def calculate_objective_attendance(self, student):
         attended = sum(1 for i in range(1, 100) if f'Maths Marks{i}' in student and pd.notna(student[f'Maths Marks{i}']) and student[f'Maths Marks{i}'] != "Absent")
         attended += sum(1 for i in range(1, 100) if f'GAT Marks{i}' in student and pd.notna(student[f'GAT Marks{i}']) and student[f'GAT Marks{i}'] != "Absent")
-        total = sum(1 for i in range(1, 100) if f'Maths Marks{i}' in student or f'GAT Marks{i}' in student)
+        attended += sum(1 for i in range(1, 100) if f'English Marks{i}' in student and pd.notna(student[f'English Marks{i}']) and student[f'English Marks{i}'] != "Absent")
+        total = sum(1 for i in range(1, 100) if f'Maths Marks{i}' in student or f'GAT Marks{i}' in student or f'English Marks{i}' in student)
         return f"{attended}/{total}"
 
     def calculate_subjective_attendance(self, student):

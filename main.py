@@ -29,6 +29,12 @@ class ReportCardGenerator:
         self.logo_path = "C:/Users/ADCI/Desktop/REPORT CARD/logo.png"
         self.table_color = colors.Color(0.1, 0.3, 0.1, alpha=0.1)  # Pale dark green
         self.second_page_pdf = "C:/Users/ADCI/Desktop/REPORT CARD/back.pdf"  # Update this path
+        self.weightage = {
+            'Objective': 0.3,
+            'Subjective': 0.3,
+            'Co-curricular': 0.2,
+            'Extra-curricular': 0.2
+        }
 
     def Make_Directories(self, path):
         os.makedirs(path, exist_ok=True)
@@ -84,6 +90,8 @@ class ReportCardGenerator:
             gat_col = f'GAT{i}'
             english_col = f'English{i}'
             maths_col = f'Maths{i}'
+            neet_col = f'NEET{i}'
+            jee_col = f'JEE{i}'
             
             if exam_col not in df.columns:
                 break
@@ -96,18 +104,83 @@ class ReportCardGenerator:
                 df[f'English Marks{i}'] = df[english_col]
             if maths_col in df.columns:
                 df[f'Maths Marks{i}'] = df[maths_col]
+            if neet_col in df.columns:
+                df[f'NEET Marks{i}'] = df[neet_col]
+            if jee_col in df.columns:
+                df[f'JEE Marks{i}'] = df[jee_col]
             
             # Drop the original columns to avoid duplication
-            columns_to_drop = [col for col in [exam_col, gat_col, english_col, maths_col] if col in df.columns]
+            columns_to_drop = [col for col in [exam_col, gat_col, english_col, maths_col, neet_col, jee_col] if col in df.columns]
             df = df.drop(columns=columns_to_drop)
 
         return df
 
     def generate_report_cards(self, file_path):
         self.data = self.load_data(file_path)
+        self.adjust_weightage()
         for _, student in self.data.iterrows():
             self.generate_report_card(student)
         print(f"Report cards generated and saved in {self.cwd}/Report_Cards")
+
+
+    def select_top_4_dates(self, exam_data):
+        date_scores = []
+        absent_dates = []
+        for date, results in exam_data.items():
+            total_score = 0
+            count = 0
+            is_absent = True
+            for subject, score in results.items():
+                if score and score != "Absent":
+                    is_absent = False
+                    try:
+                        if isinstance(score, str) and '/' in score:
+                            numerator, denominator = score.split('/')
+                            total_score += (float(numerator) / float(denominator)) * 100
+                        else:
+                            total_score += float(score)
+                        count += 1
+                    except ValueError:
+                        pass  # Silently ignore conversion errors
+            if count > 0:
+                average_score = total_score / count
+                date_scores.append((date, average_score))
+            elif is_absent:
+                absent_dates.append(date)
+
+        # Sort dates by average score in descending order
+        sorted_dates = sorted(date_scores, key=lambda x: x[1], reverse=True)
+
+        # Select top 4 dates
+        top_4_dates = [date for date, _ in sorted_dates[:4]]
+
+        # If we have fewer than 4 dates, add absent dates
+        while len(top_4_dates) < 4 and absent_dates:
+            top_4_dates.append(absent_dates.pop(0))
+
+        # If we still have fewer than 4 dates, add placeholder dates
+        while len(top_4_dates) < 4:
+            placeholder_date = f"Exam {len(top_4_dates) + 1}"
+            top_4_dates.append(placeholder_date)
+            exam_data[placeholder_date] = {"MATHS": "Absent", "GAT": "Absent", "English": "Absent"}
+
+        return {date: exam_data[date] for date in top_4_dates}
+
+    def adjust_weightage(self):
+        columns = self.data.columns
+        if not any('Subjective' in col for col in columns):
+            self.weightage['Objective'] += self.weightage['Subjective']
+            self.weightage['Subjective'] = 0
+        if 'Co-curricular Attendance' not in columns and 'Extra-curricular Attendance' not in columns:
+            self.weightage['Objective'] += self.weightage['Co-curricular'] + self.weightage['Extra-curricular']
+            self.weightage['Co-curricular'] = 0
+            self.weightage['Extra-curricular'] = 0
+        elif 'Co-curricular Attendance' not in columns:
+            self.weightage['Extra-curricular'] += self.weightage['Co-curricular']
+            self.weightage['Co-curricular'] = 0
+        elif 'Extra-curricular Attendance' not in columns:
+            self.weightage['Co-curricular'] += self.weightage['Extra-curricular']
+            self.weightage['Extra-curricular'] = 0
 
     def generate_report_card(self, student):
         file_name = f"{student['Roll No']}_{student['Name'].replace(' ', '_')}_report_card.pdf"
@@ -192,23 +265,8 @@ class ReportCardGenerator:
             c.drawString(x + width / 5, y + height - 2.25 * cm, f"District: {student['District'].upper()}")
         else:
             c.drawString(x + width / 5, y + height - 2.25 * cm, "District: N/A")
-
-    def select_top_4_dates(self, exam_data):
-        date_averages = {}
-        for date, results in exam_data.items():
-            scores = []
-            for score in results.values():
-                if score and score != "Absent":
-                    if '/' in score:  # Handle "score/total" format
-                        score_value, total = map(float, score.split('/'))
-                        scores.append(score_value / total * 100)  # Convert to percentage
-                    else:
-                        scores.append(float(score))
-            if scores:
-                date_averages[date] = sum(scores) / len(scores)
-
-        top_4_dates = sorted(date_averages, key=date_averages.get, reverse=True)[:4]
-        return {date: exam_data[date] for date in top_4_dates}
+            
+    
 
     def draw_exam_results(self, c, student, x, y, width, height):
         c.setFont("Roboto-Black", 14)
@@ -220,6 +278,8 @@ class ReportCardGenerator:
         for i in range(1, 100):
             date_key = f'Date{i}'
             maths_key = f'Maths Marks{i}'
+            neet_key = f'NEET Marks{i}'
+            jee_key = f'JEE Marks{i}'
             gat_key = f'GAT Marks{i}'
             english_key = f'English Marks{i}'
     
@@ -228,17 +288,23 @@ class ReportCardGenerator:
     
             date = student[date_key]
             maths_marks = self.format_marks(student.get(maths_key, ""))
+            neet_marks = self.format_marks(student.get(neet_key, ""))
+            jee_marks = self.format_marks(student.get(jee_key, ""))
             gat_marks = self.format_marks(student.get(gat_key, ""))
             english_marks = self.format_marks(student.get(english_key, ""))
     
             if date not in exam_data:
-                exam_data[date] = {"MATHS": "", "GAT": "", "English": ""}
+                exam_data[date] = {"MATHS": "Absent", "GAT": "Absent", "English": "Absent"}
     
-            if maths_marks:
-                exam_data[date]["MATHS"] = maths_marks
-            if gat_marks:
+            if maths_marks and maths_marks != "Absent":
+                exam_data[date]["MATHS"] = f"{maths_marks}"
+            elif neet_marks and neet_marks != "Absent":
+                exam_data[date]["NEET"] = f"{neet_marks}/720"
+            elif jee_marks and jee_marks != "Absent":
+                exam_data[date]["JEE"] = f"{jee_marks}/360"
+            if gat_marks and gat_marks != "Absent":
                 exam_data[date]["GAT"] = gat_marks
-            if english_marks:
+            if english_marks and english_marks != "Absent":
                 exam_data[date]["English"] = english_marks
     
         # Select top 4 dates
@@ -293,22 +359,34 @@ class ReportCardGenerator:
             if subject not in student:
                 break
             if pd.notna(student[subject]):
-                date_value = student[date] if pd.notna(student[date]) else ""
-                marks_value = student[marks] if pd.notna(student[marks]) else "Absent"
-                if marks_value != "Absent":
-                    mark, total = map(int, str(marks_value).split('/'))
-                    marks_value = f"{mark:.1f}/{total:d}"
+                date_value = student[date] if pd.notna(student[date]) else f"Exam {i}"
+                marks_value = student[marks] if pd.notna(student[marks]) else "-"
+                if marks_value != "-" and marks_value != "Absent":
+                    try:
+                        mark, total = map(int, str(marks_value).split('/'))
+                        score = (mark / total) * 100
+                    except ValueError:
+                        score = 0
+                else:
+                    score = 0
                 
                 if date_value not in exam_data:
-                    exam_data[date_value] = {}
-                exam_data[date_value][student[subject]] = marks_value
+                    exam_data[date_value] = []
+                exam_data[date_value].append((student[subject], marks_value, score))
             i += 1
 
-        # Select top 4 dates
-        top_4_exam_data = self.select_top_4_dates(exam_data)
+        # Sort exams by score and select top 4
+        sorted_exams = sorted(exam_data.items(), key=lambda x: max(item[2] for item in x[1]) if x[1] else 0, reverse=True)
+        top_4_exams = sorted_exams[:4]
 
-        for date, subjects in top_4_exam_data.items():
-            for subject, marks in subjects.items():
+        # Fill remaining slots if needed
+        while len(top_4_exams) < 4:
+            placeholder_date = f"Exam {len(top_4_exams) + 1}"
+            top_4_exams.append((placeholder_date, [("N/A", "-", 0)]))
+
+        # Populate the data for the table
+        for date, subjects in top_4_exams:
+            for subject, marks, _ in subjects:
                 data.append([date, subject, marks])
 
         col_widths = [width * 0.15, width * 0.20, width * 0.15]
@@ -332,9 +410,7 @@ class ReportCardGenerator:
         table.drawOn(c, x, y)
 
         # Calculate Curricular attendance
-        objective_attendance = self.calculate_objective_attendance(student)
-        subjective_attendance = self.calculate_subjective_attendance(student)
-        curricular_attendance = self.sum_attendance(objective_attendance, subjective_attendance)
+        curricular_attendance = self.calculate_curricular_attendance(student)
 
         # Co-curricular and Extra-curricular Activities
         co_curricular_attendance = self.get_attendance(student, [
@@ -347,7 +423,7 @@ class ReportCardGenerator:
         ])
 
         # Calculate overall attendance
-        overall_attendance = self.sum_attendance(curricular_attendance, co_curricular_attendance, extra_curricular_attendance)
+        overall_attendance = self.calculate_overall_attendance(curricular_attendance, co_curricular_attendance, extra_curricular_attendance)
 
         activities_data = [
             ["Activities", "Attendance"],
@@ -409,6 +485,63 @@ class ReportCardGenerator:
             text_object.textLine(line.strip())
         c.drawText(text_object)
 
+    def calculate_curricular_attendance(self, student):
+        attended = 0
+        total = 0
+        
+        # Count objective exams
+        for i in range(1, 100):
+            for subject in ['Maths', 'GAT', 'English', 'NEET', 'JEE']:
+                mark_key = f'{subject} Marks{i}'
+                if mark_key in student:
+                    total += 1
+                    if pd.notna(student[mark_key]) and student[mark_key] not in ["Absent", "-"]:
+                        attended += 1
+
+        # Count subjective exams
+        for i in range(1, 100):
+            mark_key = f'Subjective Marks{i}'
+            if mark_key in student:
+                total += 1
+                if pd.notna(student[mark_key]) and student[mark_key] not in ["Absent", "-"]:
+                    attended += 1
+
+        return f"{attended}/{total}" if total > 0 else "-"
+
+    def get_attendance(self, student, possible_keys):
+        for key in possible_keys:
+            if key in student:
+                value = student[key]
+                if pd.notna(value) and value != "-":
+                    # If the value is already in the format "x/y", return it as is
+                    if isinstance(value, str) and '/' in value:
+                        return value
+                    # If it's a single number, assume it's the number of classes attended out of 10
+                    elif isinstance(value, (int, float)) or (isinstance(value, str) and value.replace('.', '').isdigit()):
+                        attended = int(float(value))
+                        return f"{attended}/10"
+        return '-'
+
+    def calculate_overall_attendance(self, curricular, co_curricular, extra_curricular):
+        def parse_attendance(attendance):
+            if isinstance(attendance, str) and '/' in attendance:
+                attended, total = map(int, attendance.split('/'))
+                return attended, total
+            return 0, 0
+
+        curr_attended, curr_total = parse_attendance(curricular)
+        co_curr_attended, co_curr_total = parse_attendance(co_curricular)
+        extra_curr_attended, extra_curr_total = parse_attendance(extra_curricular)
+
+        total_attended = curr_attended + co_curr_attended + extra_curr_attended
+        total_classes = curr_total + co_curr_total + extra_curr_total
+
+        if total_classes == 0:
+            return '-'
+        
+        return f"{total_attended}/{total_classes}"
+
+
     def draw_total_marks(self, c, student, x, y, width, height):
         c.setFont("Roboto-Black", 14)
         c.drawString(x, y + height - 2 * cm, "OVERALL EVALUATION: ")
@@ -416,40 +549,50 @@ class ReportCardGenerator:
         maths_marks = []
         gat_marks = []
         english_marks = []
-        maths_count = 0
-        gat_count = 0
-        english_count = 0
+        neet_marks = []
+        jee_marks = []
+        maths_count = gat_count = english_count = neet_count = jee_count = 0
 
         i = 1
         while True:
             maths_key = f"Maths Marks{i}"
             gat_key = f"GAT Marks{i}"
             english_key = f"English Marks{i}"
+            neet_key = f"NEET Marks{i}"
+            jee_key = f"JEE Marks{i}"
 
-            if maths_key not in student and gat_key not in student and english_key not in student:
+            if all(key not in student for key in [maths_key, gat_key, english_key, neet_key, jee_key]):
                 break
 
             if pd.notna(student.get(maths_key)) and student[maths_key] != "Absent":
                 maths_marks.append(float(student[maths_key]))
                 maths_count += 1
-
             if pd.notna(student.get(gat_key)) and student[gat_key] != "Absent":
                 gat_marks.append(float(student[gat_key]))
                 gat_count += 1
-
             if pd.notna(student.get(english_key)) and student[english_key] != "Absent":
                 english_marks.append(float(student[english_key]))
                 english_count += 1
+            if pd.notna(student.get(neet_key)) and student[neet_key] != "Absent":
+                neet_marks.append(float(student[neet_key]))
+                neet_count += 1
+            if pd.notna(student.get(jee_key)) and student[jee_key] != "Absent":
+                jee_marks.append(float(student[jee_key]))
+                jee_count += 1
 
             i += 1
 
         maths_total = maths_count * 300
         gat_total = gat_count * 400
         english_total = english_count * 200
+        neet_total = neet_count * 720
+        jee_total = jee_count * 360
 
         maths_sum = sum(maths_marks)
         gat_sum = sum(gat_marks)
         english_sum = sum(english_marks)
+        neet_sum = sum(neet_marks)
+        jee_sum = sum(jee_marks)
 
         def get_color_for_subject(score, total_score, subject, exam_count):
             Traffic_red = colors.Color(0.85, 0.1, 0.1)   # Lighter red
@@ -468,6 +611,12 @@ class ReportCardGenerator:
             elif subject == 'English':
                 green_threshold = total_score * (101 / 200)
                 orange_threshold = total_score * (91 / 200)
+            elif subject == 'NEET':
+                green_threshold = total_score * (451 / 720)
+                orange_threshold = total_score * (401 / 720)
+            elif subject == 'JEE':
+                green_threshold = total_score * (201 / 360)
+                orange_threshold = total_score * (181 / 360)
             elif subject == 'Subjective':
                 green_threshold = 76  # 76% and above
                 orange_threshold = 51  # Between 50% and 75%
@@ -501,28 +650,90 @@ class ReportCardGenerator:
         subjective_total_sum = sum(subjective_total)
         subjective_percent = (subjective_sum / subjective_total_sum) * 100 if subjective_total_sum else 0
 
-        # Calculate overall percentage
-        curricular_sum = maths_sum + gat_sum + english_sum + subjective_sum
-        curricular_total = maths_total + gat_total + english_total + subjective_total_sum
-        curricular_percent = (curricular_sum / curricular_total) * 100 if curricular_total else 0
-        curricular_weighted = curricular_percent * 0.6
+        objective_sum = maths_sum + gat_sum + english_sum + neet_sum + jee_sum
+        objective_total = maths_total + gat_total + english_total + neet_total + jee_total
+        objective_percent = (objective_sum / objective_total) * 100 if objective_total else 0
+
+        subjective_percent = (subjective_sum / subjective_total_sum) * 100 if subjective_total_sum else 0
 
         co_curricular_percent = self.calculate_activity_percentage(student, 'Co-curricular')
         extra_curricular_percent = self.calculate_activity_percentage(student, 'Extra-curricular')
-        co_curricular_weighted = co_curricular_percent * 0.2
-        extra_curricular_weighted = extra_curricular_percent * 0.2
 
-        overall_percent = curricular_weighted + co_curricular_weighted + extra_curricular_weighted
+        # Set base weightage
+        curriculum_weight = 0.60
+        activity_weight = 0.40
 
+        # Determine if objective and subjective components are present
+        objective_present = objective_total > 0
+        subjective_present = subjective_total_sum > 0
+
+        # Distribute curriculum weightage
+        if objective_present and subjective_present:
+            objective_weight = subjective_weight = curriculum_weight / 2  # 30% each
+        elif objective_present:
+            objective_weight = curriculum_weight
+            subjective_weight = 0
+        elif subjective_present:
+            objective_weight = 0
+            subjective_weight = curriculum_weight
+        else:
+            objective_weight = subjective_weight = 0
+
+        # Determine if co-curricular and extra-curricular activities are valid (not hyphenated)
+        co_curricular_valid = co_curricular_percent != 0  # 0 indicates a hyphen was present
+        extra_curricular_valid = extra_curricular_percent != 0  # 0 indicates a hyphen was present
+
+        # Distribute activity weightage
+        if co_curricular_valid and extra_curricular_valid:
+            co_curricular_weight = extra_curricular_weight = activity_weight / 2
+        elif co_curricular_valid:
+            co_curricular_weight = activity_weight
+            extra_curricular_weight = 0
+        elif extra_curricular_valid:
+            co_curricular_weight = 0
+            extra_curricular_weight = activity_weight
+        else:
+            # If both activities are invalid, redistribute the weight to curriculum
+            if objective_present and subjective_present:
+                objective_weight += activity_weight / 2
+                subjective_weight += activity_weight / 2
+            elif objective_present:
+                objective_weight += activity_weight
+            elif subjective_present:
+                subjective_weight += activity_weight
+            co_curricular_weight = extra_curricular_weight = 0
+
+        # Final adjusted weightage
+        final_weightage = {
+            'Objective': objective_weight,
+            'Subjective': subjective_weight,
+            'Co-curricular': co_curricular_weight,
+            'Extra-curricular': extra_curricular_weight
+        }
+
+        # Calculate overall percentage
+        overall_percent = (
+            objective_percent * final_weightage['Objective'] +
+            subjective_percent * final_weightage['Subjective'] +
+            co_curricular_percent * final_weightage['Co-curricular'] +
+            extra_curricular_percent * final_weightage['Extra-curricular']
+        )
         normal_style = ParagraphStyle('Normal', fontName='Roboto-Bold', fontSize=10, leading=12, alignment=TA_LEFT)
 
-        data = [
-            [Paragraph(f"<font name='Roboto-Black'>MATHS Total:</font> {maths_sum:.2f} out of <font name='Roboto-bold'>{maths_total}</font> (<font name='Roboto-bold'>{maths_count}</font> exams)", normal_style)],
-            [Paragraph(f"<font name='Roboto-Black'>GAT Total:</font> {gat_sum:.2f} out of <font name='Roboto-bold'>{gat_total}</font> (<font name='Roboto-bold'>{gat_count}</font> exams)", normal_style)],
-            [Paragraph(f"<font name='Roboto-Black'>English Total:</font> {english_sum:.2f} out of <font name='Roboto-bold'>{english_total}</font> (<font name='Roboto-bold'>{english_count}</font> exams)", normal_style)],
-            [Paragraph(f"<font name='Roboto-Black'>Subjective Total:</font> {subjective_sum:.2f} out of <font name='Roboto-bold'>{subjective_total_sum}</font> (<font name='Roboto-bold'>{subjective_count}</font> exams)", normal_style)],
-            [Paragraph(f"<font name='Roboto-Black'>Overall Percentage:</font> {overall_percent:.2f}% (out of 100%)", normal_style)]
-        ]
+        data = []
+        if maths_count > 0:
+            data.append([Paragraph(f"<font name='Roboto-Black'>MATHS Total:</font> {maths_sum:.2f} out of <font name='Roboto-bold'>{maths_total}</font> (<font name='Roboto-bold'>{maths_count}</font> exams)", normal_style)])
+        if gat_count > 0:
+            data.append([Paragraph(f"<font name='Roboto-Black'>GAT Total:</font> {gat_sum:.2f} out of <font name='Roboto-bold'>{gat_total}</font> (<font name='Roboto-bold'>{gat_count}</font> exams)", normal_style)])
+        if english_count > 0:
+            data.append([Paragraph(f"<font name='Roboto-Black'>English Total:</font> {english_sum:.2f} out of <font name='Roboto-bold'>{english_total}</font> (<font name='Roboto-bold'>{english_count}</font> exams)", normal_style)])
+        if neet_count > 0:
+            data.append([Paragraph(f"<font name='Roboto-Black'>NEET Total:</font> {neet_sum:.2f} out of <font name='Roboto-bold'>{neet_total}</font> (<font name='Roboto-bold'>{neet_count}</font> exams)", normal_style)])
+        if jee_count > 0:
+            data.append([Paragraph(f"<font name='Roboto-Black'>JEE Total:</font> {jee_sum:.2f} out of <font name='Roboto-bold'>{jee_total}</font> (<font name='Roboto-bold'>{jee_count}</font> exams)", normal_style)])
+        if subjective_count > 0:
+            data.append([Paragraph(f"<font name='Roboto-Black'>Subjective Total:</font> {subjective_sum:.2f} out of <font name='Roboto-bold'>{subjective_total_sum}</font> (<font name='Roboto-bold'>{subjective_count}</font> exams)", normal_style)])
+        data.append([Paragraph(f"<font name='Roboto-Black'>Overall Percentage:</font> {overall_percent:.2f}% (out of 100%)", normal_style)])
 
         table = Table(data, colWidths=[width - 7 * cm])
         table.setStyle(TableStyle([
@@ -537,26 +748,40 @@ class ReportCardGenerator:
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ROUNDEDCORNERS', [10, 10, 10, 10]),
-            ('BACKGROUND', (0, 0), (0, 0), get_color_for_subject(maths_sum, maths_total, 'Maths', maths_count)),
-            ('BACKGROUND', (0, 1), (0, 1), get_color_for_subject(gat_sum, gat_total, 'GAT', gat_count)),
-            ('BACKGROUND', (0, 2), (0, 2), get_color_for_subject(english_sum, english_total, 'English', english_count)),
-            ('BACKGROUND', (0, 3), (0, 3), get_color_for_subject(subjective_percent, 100, 'Subjective', subjective_count)),
-            ('LINEBEFORE', (0, 4), (0, 4), 2, colors.black),  # Thicker left border for Overall Percentage
-            ('LINEAFTER', (0, 4), (0, 4), 2, colors.black),   # Thicker right border for Overall Percentage
-            ('LINEBELOW', (0, 4), (0, 4), 2, colors.black),  # Thicker bottom border for Overall Percentage
         ]))
+
+        for i, row in enumerate(data):
+            if 'MATHS Total:' in row[0].text:
+                table.setStyle(TableStyle([('BACKGROUND', (0, i), (0, i), get_color_for_subject(maths_sum, maths_total, 'Maths', maths_count))]))
+            elif 'GAT Total:' in row[0].text:
+                table.setStyle(TableStyle([('BACKGROUND', (0, i), (0, i), get_color_for_subject(gat_sum, gat_total, 'GAT', gat_count))]))
+            elif 'English Total:' in row[0].text:
+                table.setStyle(TableStyle([('BACKGROUND', (0, i), (0, i), get_color_for_subject(english_sum, english_total, 'English', english_count))]))
+            elif 'NEET Total:' in row[0].text:
+                table.setStyle(TableStyle([('BACKGROUND', (0, i), (0, i), get_color_for_subject(neet_sum, neet_total, 'NEET', neet_count))]))
+            elif 'JEE Total:' in row[0].text:
+                table.setStyle(TableStyle([('BACKGROUND', (0, i), (0, i), get_color_for_subject(jee_sum, jee_total, 'JEE', jee_count))]))
+            elif 'Subjective Total:' in row[0].text:
+                table.setStyle(TableStyle([('BACKGROUND', (0, i), (0, i), get_color_for_subject(subjective_percent, 100, 'Subjective', subjective_count))]))
+            elif 'Overall Percentage:' in row[0].text:
+                table.setStyle(TableStyle([
+                    ('LINEBEFORE', (0, i), (0, i), 2, colors.black),
+                    ('LINEAFTER', (0, i), (0, i), 2, colors.black),
+                    ('LINEBELOW', (0, i), (0, i), 2, colors.black),
+                ]))
 
         table.wrapOn(c, width, height)
         table.drawOn(c, x, y + height - 6.8 * cm)
         
             # Add note about overall percentage calculation
         note_style = ParagraphStyle('Note', fontName='Roboto-Italic', fontSize=8, leading=10, alignment=TA_LEFT)
-        note_text = """
+        note_text = f"""
         <font name='Roboto-BlackItalic'>Note on Overall Percentage Calculation:</font>
         The overall percentage is weighted as follows:
-        • 60% Curricular (Maths, GAT, English, Subjective)
-        • 20% Co-curricular activities
-        • 20% Extra-curricular activities
+        • {final_weightage['Objective'] * 100:.1f}% Objective (Maths, GAT, English)
+        • {final_weightage['Subjective'] * 100:.1f}% Subjective
+        • {final_weightage['Co-curricular'] * 100:.1f}% Co-curricular activities
+        • {final_weightage['Extra-curricular'] * 100:.1f}% Extra-curricular activities
         """
         note = Paragraph(note_text, note_style)
         note_width = width - 7 * cm
@@ -564,6 +789,7 @@ class ReportCardGenerator:
         note.wrapOn(c, note_width, note_height)
         note.drawOn(c, x, y + height - 8.1 * cm)
 
+            
         def center_text_over_line(text, line_start, line_end, y_position):
             text_width = c.stringWidth(text, "Roboto-Bold", 10)
             line_center = (line_start + line_end) / 2
@@ -603,60 +829,6 @@ class ReportCardGenerator:
         c.drawString(x, y + height - 3 * cm, f"Father/Guardian Contact: {father_contact}")
         c.drawString(x, y + height - 3.5 * cm, f"Mother/Guardian Contact: {mother_contact}")
 
-    def get_attendance(self, student, possible_keys):
-        for key in possible_keys:
-            if key in student:
-                value = student[key]
-                if pd.notna(value):
-                    return value
-        return 'N/A'  # Return 'N/A' if none of the keys are found or if the value is NaN
-
-    def calculate_objective_attendance(self, student):
-        attended = sum(1 for i in range(1, 100) if f'Maths Marks{i}' in student and pd.notna(student[f'Maths Marks{i}']) and student[f'Maths Marks{i}'] != "Absent")
-        attended += sum(1 for i in range(1, 100) if f'GAT Marks{i}' in student and pd.notna(student[f'GAT Marks{i}']) and student[f'GAT Marks{i}'] != "Absent")
-        total = sum(1 for i in range(1, 100) if f'Maths Marks{i}' in student or f'GAT Marks{i}' in student)
-        return f"{attended}/{total}"
-
-    def calculate_subjective_attendance(self, student):
-        attended = sum(1 for i in range(1, 100) if f'Subjective Marks{i}' in student and pd.notna(student[f'Subjective Marks{i}']) and student[f'Subjective Marks{i}'] != "Absent")
-        total = sum(1 for i in range(1, 100) if f'Subjective Marks{i}' in student)
-        return f"{attended}/{total}"
-
-    def sum_attendance(self, *attendances):
-        total_attended = 0
-        total_classes = 0
-        for attendance in attendances:
-            if isinstance(attendance, str):
-                if '/' in attendance:
-                    try:
-                        attended, total = map(int, attendance.split('/'))
-                        total_attended += attended
-                        total_classes += total
-                    except ValueError:
-                        # If we can't convert to int, we skip this attendance
-                        continue
-                elif attendance.lower() == 'n/a':
-                    # Skip N/A values
-                    continue
-                else:
-                    # Try to convert single number to float
-                    try:
-                        value = float(attendance)
-                        total_attended += value
-                        total_classes += 100  # Assuming it's a percentage
-                    except ValueError:
-                        # If we can't convert to float, we skip this attendance
-                        continue
-            elif isinstance(attendance, (int, float)):
-                # If it's already a number, assume it's a percentage
-                total_attended += attendance
-                total_classes += 100
-        
-        if total_classes == 0:
-            return 'N/A'  # Return N/A if we couldn't process any attendance
-        
-        return f"{total_attended}/{total_classes}"
-
     def get_color(self, attendance):
         Traffic_red = colors.Color(0.85, 0.1, 0.1)   # Lighter red
         Traffic_amber = colors.Color(0.85, 0.55, 0)  # Lighter amber
@@ -690,22 +862,11 @@ class ReportCardGenerator:
 
     def calculate_activity_percentage(self, student, activity_type):
         attendance = self.get_attendance(student, [f'{activity_type} Attendance', f'{activity_type} Attendance ', activity_type])
-        if attendance == 'N/A':
+        if attendance == '-':
             return 0
-        if isinstance(attendance, float):
-            # If attendance is stored as a float, assume it's already a percentage
-            return attendance
-        if isinstance(attendance, str):
-            if '/' in attendance:
-                # If attendance is stored as "attended/total"
-                attended, total = map(int, attendance.split('/'))
-                return (attended / total) * 100 if total else 0
-            else:
-                # If attendance is stored as a string percentage
-                try:
-                    return float(attendance.rstrip('%'))
-                except ValueError:
-                    return 0
+        if isinstance(attendance, str) and '/' in attendance:
+            attended, total = map(int, attendance.split('/'))
+            return (attended / total) * 100 if total > 0 else 0
         return 0  # Return 0 for any other unexpected data type
 
 def main():

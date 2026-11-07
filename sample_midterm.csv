@@ -1,0 +1,4 @@
+Roll No,Name,District,Class,Batch,Subjective Date1,Subject1,Subjective Marks1,Subjective Date2,Subject2,Subjective Marks2,Subjective Date3,Subject3,Subjective Marks3,SELF,FATHER,MOTHER
+001,Sample Student One,Pune,12,Science,01-Nov-2026,Mathematics,55/70,02-Nov-2026,Physics,48/70,03-Nov-2026,Chemistry,60/70,9000000001,9000000002,9000000003
+002,Sample Student Two,Pune,12,Science,01-Nov-2026,Mathematics,42/70,02-Nov-2026,Physics,Absent,03-Nov-2026,Chemistry,51/70,9000000004,9000000005,9000000006
+003,Sample Student Three,Nashik,12,Science,01-Nov-2026,Mathematics,63/70,02-Nov-2026,Physics,57/70,03-Nov-2026,Chemistry,49/70,9000000007,9000000008,9000000009

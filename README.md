@@ -1,82 +1,55 @@
-# ANEES DEFENCE CAREER INSTITUTE Report Card Generator
+# ADCI report
 
-## Overview
+Run from PowerShell:
 
-This project is a Python-based Report Card Generator designed specifically for the ANEES DEFENCE CAREER INSTITUTE. It automates the process of creating comprehensive student report cards from CSV data, including academic performance, attendance, and extra-curricular activities.
+```powershell
+cd "C:\Users\ADCI\Desktop\SAAD\REPORT CARD"
+python -m pip install -r requirements.txt
+python "ADCI report.py"
+```
 
-## Features
+Enter the path to your CSV when prompted. Use `main-NDA.py` for NDA reports or
+`B4_main.py` for NEET/JEE reports. Each script saves PDFs in the `Report_Cards`
+folder beside the script, regardless of the shell's working directory. Existing
+files with the same generated name are replaced. CSV sources are never changed.
 
-- Generates individual PDF report cards for each student
-- Includes both objective and subjective exam results
-- Calculates and displays attendance for curricular, co-curricular, and extra-curricular activities
-- Provides an overall evaluation based on weighted percentages of different activities
-- Uses color-coding to visually represent performance levels
-- Supports multiple exams and subjects
-- Includes contact information for students and guardians
-- Attaches a custom second page to each report card
+CSV input requires `Name`, `Roll No`, `Class`, and `Batch`. Optional district and
+contacts use `District`, `SELF`, `FATHER`, `MOTHER`; the longer contact names used
+by older generators are also accepted. Roll numbers retain leading zeroes.
 
-## Requirements
+Subjective exams use sequential columns `Subjective Date1`, `Subject1`,
+`Subjective Marks1`, then the same names ending in 2, 3, etc. Prefer marks such as
+`55/70`. Maximum marks are inferred from other rows for the same subject and date.
+If no maximum is available, the generator asks; Enter means 100. Invalid or
+conflicting maximum marks raise an error rather than producing misleading totals.
 
-- Python 3.7+
-- pandas
-- reportlab
-- PyPDF2
+Absences (empty marks, `Absent`, `AB`, `A`, `-`, or `—`) count as zero marks and
+retain their maximum marks in the percentage denominator. Reports still display
+`Absent`. For example, 50/100 followed by an absence out of 100 gives 25%.
+An exam column present in the CSV is treated as a scheduled exam for each student;
+use separate CSV files when students have different exam schedules.
 
-## Installation
+NDA objective columns use `Exam1`, `Maths1`, `GAT1`, `English1`, with optional
+`NEET1` and `JEE1`; NEET/JEE reports use `Exam1`, `NEET1`, `JEE1`. Repeat with
+sequential numbers for later exams. Objective marks are numeric or absent. Fixed
+maximum marks are Maths 300, GAT 400, English 200, NEET 720, and JEE 360.
+Keep `logo.png`, `fonts`, and (for NDA/NEET/JEE reports) `back.pdf` beside the scripts.
 
-1. Clone this repository:
-   ```
-   git clone https://github.com/your-username/report-card-generator.git
-   cd report-card-generator
-   ```
+Combine individual reports:
 
-2. Install the required packages:
-   ```
-   pip install pandas reportlab PyPDF2
-   ```
+```powershell
+python merge.py
+```
 
-3. Ensure you have the necessary font files in a `fonts` directory:
-   - Roboto-Regular.ttf
-   - Roboto-Bold.ttf
-   - Roboto-Italic.ttf
-   - Roboto-Black.ttf
-   - Roboto-BlackItalic.ttf
+The merger includes only filenames ending in `_report_card.pdf`, sorts serial
+numbers numerically, and excludes its output. Re-running it does not duplicate
+previously merged pages. Generate different report batches in separate output
+folders or move completed PDFs before generating another batch.
 
-## Usage
+Run regression checks:
 
-1. Prepare your CSV file with student data. The CSV should include columns for:
-   - Name
-   - Roll No
-   - Class
-   - Batch
-   - District
-   - Exam details (Date, Subject, Marks)
-   - Attendance information
-   - Contact numbers
+```powershell
+python -m unittest discover -s . -p test_reports.py -v
+```
 
-2. Run the script:
-   ```
-   python main.py
-   ```
-
-3. When prompted, enter the path to your CSV file.
-
-4. The script will generate individual PDF report cards for each student in the `Report_Cards` directory.
-
-## Customization
-
-- You can modify the `institute_details` in the `__init__` method of the `ReportCardGenerator` class to update the institute's information.
-- Adjust the `logo_path` and `second_page_pdf` variables to use your own logo and second page template.
-- Modify the color scheme by changing the `table_color` and other color definitions in the script.
-
-## Contributing
-
-Contributions to improve the Report Card Generator are welcome. Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For any queries or support, please contact me.
+Checks use temporary synthetic data and do not replace student reports.

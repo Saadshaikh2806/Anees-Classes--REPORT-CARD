@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+Report_Cards/
+Sample_Output/
+*.csv
+*.xlsx
+!sample_midterm.csv

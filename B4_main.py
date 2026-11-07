@@ -1,3 +1,4 @@
+from report_utils import read_students, prepare_subjective, subject_maximum, is_absent, safe_filename
 import pandas as pd
 import os
 from reportlab.pdfgen import canvas
@@ -15,7 +16,7 @@ from PyPDF2 import PdfReader, PdfWriter
 
 class ReportCardGenerator:
     def __init__(self):
-        self.cwd = os.getcwd()
+        self.cwd = os.path.dirname(os.path.abspath(__file__))
         self.Make_Directories(self.cwd + "/Report_Cards")
         self.setup_fonts()
         self.institute_details = {
@@ -26,9 +27,9 @@ class ReportCardGenerator:
             "email": "kutty.anees@gmail.com",
             "website": "https://www.aneesclasses.com"
         }
-        self.logo_path = "C:/Users/ADCI/Desktop/REPORT CARD/logo.png"
+        self.logo_path = os.path.join(self.cwd, "logo.png")
         self.table_color = colors.Color(0.1, 0.3, 0.1, alpha=0.1)  # Pale dark green
-        self.second_page_pdf = "C:/Users/ADCI/Desktop/REPORT CARD/back.pdf"  # Update this path
+        self.second_page_pdf = os.path.join(self.cwd, "back.pdf")
         self.weightage = {
             'Objective': 0.3,
             'Subjective': 0.3,
@@ -48,7 +49,7 @@ class ReportCardGenerator:
         pdfmetrics.registerFont(TTFont('Roboto-BlackItalic', os.path.join(fonts_dir, 'Roboto-BlackItalic.ttf')))
 
     def load_data(self, file_path):
-        df = pd.read_csv(file_path)
+        df = read_students(file_path)
         if 'District' not in df.columns:
             df['District'] = 'N/A'
 
@@ -108,8 +109,11 @@ class ReportCardGenerator:
 
     def generate_report_cards(self, file_path):
         self.data = self.load_data(file_path)
+        self.subject_maxima = prepare_subjective(self.data)
         self.adjust_weightage()
-        for _, student in self.data.iterrows():
+        for serial, (_, student) in enumerate(self.data.iterrows(), 1):
+            student = student.copy()
+            student['Serial No'] = serial
             self.generate_report_card(student)
         print(f"Report cards generated and saved in {self.cwd}/Report_Cards")
 
@@ -135,7 +139,7 @@ class ReportCardGenerator:
             print(f"Skipping student {student['Name']} with unknown batch: {batch}")
             return
 
-        file_name = f"{student['Roll No']}_{student['Name'].replace(' ', '_')}_{batch}_report_card.pdf"
+        file_name = f"{student['Serial No']}_{safe_filename(student['Roll No'])}_{safe_filename(student['Name'])}_{batch}_report_card.pdf"
         file_path = os.path.join(self.cwd, "Report_Cards", file_name)
 
         # Generate the first page
@@ -148,7 +152,9 @@ class ReportCardGenerator:
 
     def attach_second_page(self, report_card_path):
         # Read the generated report card
-        report_card = PdfReader(report_card_path)
+        import io
+        with open(report_card_path, "rb") as source:
+            report_card = PdfReader(io.BytesIO(source.read()))
         
         # Read the second page PDF
         second_page = PdfReader(self.second_page_pdf)
@@ -210,7 +216,7 @@ class ReportCardGenerator:
         c.rect(x, y, width, height)
         c.setFont("Roboto-Black", 12)
         c.drawString(x + 0.5 * cm, y + height - 0.75 * cm, f"Name: {student['Name'].upper()}")
-        c.drawString(x + 0.5 * cm, y + height - 1.5 * cm, f"Roll No: {student['Roll No']}")
+        c.drawString(x + 0.5 * cm, y + height - 1.5 * cm, f"Roll No: {safe_filename(student['Roll No'])}")
         c.drawString(x + width / 5, y + height - 1.5 * cm, f"Class: {student['Class'].upper()}")
         c.drawString(x + 0.5 * cm, y + height - 2.25 * cm, f"Batch: {student['Batch']}")
         if 'District' in student:
@@ -293,7 +299,7 @@ class ReportCardGenerator:
                 marks_value = student[marks] if pd.notna(student[marks]) else "-"
                 if marks_value != "-" and marks_value != "Absent":
                     try:
-                        mark, total = map(int, str(marks_value).split('/'))
+                        mark, total = map(float, str(marks_value).split('/'))
                         score = (mark / total) * 100
                     except ValueError:
                         score = 0
@@ -485,8 +491,8 @@ class ReportCardGenerator:
             if exam_key not in student:
                 break
 
-            if pd.notna(student.get(exam_key)) and student[exam_key] != "Absent":
-                exam_marks.append(float(student[exam_key]))
+            if exam_key in student:
+                exam_marks.append(0.0 if is_absent(student[exam_key]) else float(student[exam_key]))
                 exam_count += 1
 
             i += 1
@@ -531,8 +537,12 @@ class ReportCardGenerator:
             if marks_key not in student:
                 break
             marks = student[marks_key]
-            if pd.notna(marks) and marks != "Absent":
-                mark, total = map(int, str(marks).split('/'))
+            if is_absent(marks):
+                subjective_marks.append(0.0)
+                subjective_total.append(subject_maximum(self.subject_maxima, student, i))
+                subjective_count += 1
+            else:
+                mark, total = map(float, str(marks).split('/'))
                 subjective_marks.append(mark)
                 subjective_total.append(total)
                 subjective_count += 1
@@ -613,9 +623,9 @@ class ReportCardGenerator:
 
         data = []
         if exam_count > 0:
-            data.append([Paragraph(f"<font name='Roboto-Black'>{batch} Total:</font> {exam_sum:.2f} out of <font name='Roboto-bold'>{exam_total}</font> (<font name='Roboto-bold'>{exam_count}</font> exams)", normal_style)])
+            data.append([Paragraph(f"<font name='Roboto-Black'>{batch} Total:</font> {exam_sum:.2f} out of <font name='Roboto-Bold'>{exam_total}</font> (<font name='Roboto-Bold'>{exam_count}</font> exams)", normal_style)])
         if subjective_count > 0:
-            data.append([Paragraph(f"<font name='Roboto-Black'>Subjective Total:</font> {subjective_sum:.2f} out of <font name='Roboto-bold'>{subjective_total_sum}</font> (<font name='Roboto-bold'>{subjective_count}</font> exams)", normal_style)])
+            data.append([Paragraph(f"<font name='Roboto-Black'>Subjective Total:</font> {subjective_sum:.2f} out of <font name='Roboto-Bold'>{subjective_total_sum}</font> (<font name='Roboto-Bold'>{subjective_count}</font> exams)", normal_style)])
         data.append([Paragraph(f"<font name='Roboto-Black'>Overall Percentage:</font> {overall_percent:.2f}% (out of 100%)", normal_style)])
 
         table = Table(data, colWidths=[width - 7 * cm])
@@ -653,10 +663,10 @@ class ReportCardGenerator:
         note_text = f"""
         <font name='Roboto-BlackItalic'>Note on Overall Percentage Calculation:</font>
         The overall percentage is weighted as follows:
-        • {final_weightage['Objective'] * 100:.1f}% Objective ({batch})
-        • {final_weightage['Subjective'] * 100:.1f}% Subjective
-        • {final_weightage['Co-curricular'] * 100:.1f}% Co-curricular activities
-        • {final_weightage['Extra-curricular'] * 100:.1f}% Extra-curricular activities
+        â€¢ {final_weightage['Objective'] * 100:.1f}% Objective ({batch})
+        â€¢ {final_weightage['Subjective'] * 100:.1f}% Subjective
+        â€¢ {final_weightage['Co-curricular'] * 100:.1f}% Co-curricular activities
+        â€¢ {final_weightage['Extra-curricular'] * 100:.1f}% Extra-curricular activities
         """
         note = Paragraph(note_text, note_style)
         note_width = width - 7 * cm
